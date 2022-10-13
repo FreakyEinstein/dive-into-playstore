@@ -251,7 +251,7 @@ if function_call:
         temp.append(float(f"{i*100:.2f}"))
     best_score = temp[::-1]
     names = names[::-1]
-    final = {{'App Name': names, 'How likely we recommend to you.': best_score}}
+    final = {'App Name': names, 'How likely we recommend to you.': best_score}
     final_df = pd.DataFrame(final)
     st.dataframe(final_df, 200, 100)
     function_call = False
