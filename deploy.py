@@ -23,7 +23,6 @@ reviews = pd.read_csv(f"{ASSETS_DIRECTORY}/reviews.csv")
 counter = 0
 function_call = False
 split = False
-loading_flag = False
 
 # Function to provide recommendation based on user-Id.
 apps_to_take = pd.read_csv(f"{ASSETS_DIRECTORY}/apps_to_take.csv", index_col=0)
@@ -86,7 +85,7 @@ titles_list = st.multiselect(
     'Select few apps from the below list?',
     list(temp_df.title))
 
-if st.button('Predict'):
+if st.button('Recommend Me!!'):
     userid = 1000
     app_vals = apps_data['appId'][apps_data['title'].isin(titles_list)]
     app_idx = [val for key, val in apps_dict.items() if key in app_vals]
@@ -94,12 +93,9 @@ if st.button('Predict'):
     X_df['user'] = userid
     split = True
     counter += 1
-    loading_flag = True
 else:
-    st.write('Click on the Button above to predict')
+    st.write('Click on the Button above to get your recommendations')
 
-while loading_flag:
-    st.spinner("Predicting...")
 
 # Now we scale the dataset and split it before building the model.
 scaler = StandardScaler()
@@ -252,7 +248,8 @@ if function_call:
         temp.append(f"{i*100:.2f} %")
     best_score = temp[::-1]
     names = names[::-1]
-    final = {'App Name': names, 'How likely we recommend to you.': best_score}
+    final = {'App Name': names, 'How likely we recommend to you': best_score}
+    st.subheader('These are the top 5 apps we reccomend you...!')
     final_df = pd.DataFrame(final)
     st.dataframe(final_df, use_container_width=True)
     function_call = False
