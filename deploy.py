@@ -239,7 +239,7 @@ if counter == 1:
     counter = 0
     function_call = True
 
-if function_call and app_vals:
+if function_call:
     app_id = Top_Recommendation(1000, app_vals=app_vals, measure="cosine")
     st.write(app_id)
     function_call = False
