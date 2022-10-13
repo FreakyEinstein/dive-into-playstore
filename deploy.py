@@ -247,5 +247,5 @@ if function_call:
         1000, app_vals=app_vals, measure="cosine")
     names = apps_data['title'][apps_data['appId'].isin(app_id)].values
     st.write(names)
-    st.write(f"{best_score*100:.2f}")
+    st.write(best_score*100)
     function_call = False
