@@ -248,7 +248,7 @@ if function_call:
     names = apps_data['title'][apps_data['appId'].isin(app_id)].values
     temp = []
     for i in best_score:
-        temp.append(float(f"{i*100:.2f}"))
+        temp.append(f"{i*100:.2f}")
     best_score = temp[::-1]
     names = names[::-1]
     final = {'App Name': names, 'How likely we recommend to you.': best_score}
