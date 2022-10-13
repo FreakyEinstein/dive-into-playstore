@@ -81,7 +81,7 @@ titles_list = st.multiselect(
 
 if st.button('Predict'):
     counter += 1
-    app_vals = apps_data['appId'][apps_data['title'] == titles_list]
+    app_vals = apps_data['appId'][apps_data['title'].isin(titles_list)]
 else:
     st.write('Click on the Button above to predict')
 
