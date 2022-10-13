@@ -19,6 +19,9 @@ model_df = pd.read_csv(f"{ASSETS_DIRECTORY}/Model_df.csv")
 # importing the reviews file
 reviews = pd.read_csv(f"{ASSETS_DIRECTORY}/reviews.csv")
 
+# helper counter variable to time the workflow
+counter = 0
+function_call = False
 
 # Giving a title for the App.
 st.title('A dive into the Google Playstore!!')
@@ -72,9 +75,13 @@ for i in range(len(genre_list)):
     d = c.sort_values('score', ascending=False).head(5)
     temp_df = pd.concat([temp_df, d], ignore_index=True, axis=0)
 
-options = st.multiselect(
+titles_list = st.multiselect(
     'Select few apps from the below list?',
     list(temp_df.title))
+
+if titles_list:
+    counter += 1
+    app_vals = apps_data['appId'][apps_data['title'] == titles_list]
 
 
 # Now we scale the dataset and split it before building the model.
@@ -104,76 +111,8 @@ n_features = len(features)
 n_users = 1000
 n_apps = 1130
 
+# HElPER FUNCTIONS
 
-# preparing the model.
-# Building Model Input layers.
-
-users_in = layers.Input(shape=(1, ), name='User Input')
-apps_in = layers.Input(shape=(1, ), name='App Input')
-
-features_in = layers.Input(shape=(n_features, ), name='Feature Input')
-
-# Creating embeddings, flattening the output and getting Dot product.
-embed_size = 50
-reg = regularizers.L1(0.001)
-
-users_embed = layers.Embedding(input_dim=n_users, output_dim=embed_size,
-                               embeddings_regularizer=reg, name='User-Embedding')(users_in)
-apps_embed = layers.Embedding(input_dim=n_apps, output_dim=embed_size,
-                              embeddings_regularizer=reg, name='App-Embedding')(apps_in)
-
-users_flat = layers.Flatten()(users_embed)
-apps_flat = layers.Flatten()(apps_embed)
-
-dot_prd = layers.Dot(normalize=True, axes=1)([users_flat, apps_flat])
-
-# Dense layer for features input.
-
-feat_1 = layers.Dense(units=n_features, activation='relu',
-                      kernel_regularizer=reg)(features_in)
-
-
-# Merging the layers to get final output and compiling the model.
-
-merged = layers.Concatenate()([dot_prd, feat_1])
-
-dense_1 = layers.Dense(units=256, activation='relu',
-                       kernel_regularizer=reg)(merged)
-dropout_1 = layers.Dropout(0.2)(dense_1)
-
-dense_2 = layers.Dense(units=128, activation='relu',
-                       kernel_regularizer=reg)(dropout_1)
-dropout_2 = layers.Dropout(0.2)(dense_2)
-
-dense_3 = layers.Dense(units=64, activation='relu',
-                       kernel_regularizer=reg)(dropout_2)
-
-output = layers.Dense(1, activation='linear')(dense_3)
-
-hyb_model = models.Model(
-    inputs=[users_in, apps_in, features_in], outputs=output)
-
-hyb_model.compile(optimizer=optimizers.Adam(0.001),
-                  loss='mean_absolute_error', metrics=['mse'])
-
-
-# Fitting the model on the train data.
-
-history = hyb_model.fit(x=[train['user'], train['appId'], train[features]],
-                        y=train['y'], epochs=50, batch_size=32,
-                        validation_split=0.3, verbose=1)
-
-
-# Getting the Apps and user embeddings.
-
-App_embedding = hyb_model.get_layer(name="App-Embedding").get_weights()[0]
-App_embedding.shape
-
-user_embedding = hyb_model.get_layer(name="User-Embedding").get_weights()[0]
-user_embedding.shape
-
-
-# Function to calculate score of an user-app pair based on dot product or cosine similarity.
 
 def compute_score(user_val, app_val, measure='dot'):
 
@@ -197,18 +136,6 @@ user_dict = {user: i for (user, i) in zip(
 n_users = len(user_dict)
 
 
-# Getting apps already rated by a particular user.
-
-def get_apps(id):
-
-    for key in user_dict.keys():
-
-        if user_dict[key] == id:
-            user_id = key
-
-    return reviews['appId'][reviews['userImage'] == user_id].unique(), reviews['userName'][reviews['userImage'] == user_id].unique()
-
-
 # Function to provide recommendation based on user-Id.
 apps_to_take = model_df['appId']
 apps_dict = {app: i for (app, i) in zip(
@@ -216,10 +143,11 @@ apps_dict = {app: i for (app, i) in zip(
 n_apps = len(apps_dict)
 
 
-def Top_Recommendation(id, measure, n=5):
+def Top_Recommendation(id, app_vals, measure, n=5):
 
     scores = []
-    vals, name = get_apps(id)
+
+    vals = app_vals
 
     # Retrieving apps which are not in user's rated apps.
     select_apps = [app for app in apps_dict.keys() if app not in vals]
@@ -242,5 +170,74 @@ def Top_Recommendation(id, measure, n=5):
     return app_id
 
 
-app_id = Top_Recommendation(1000, measure="cosine")
-st.write(app_id)
+# Function to calculate score of an user-app pair based on dot product or cosine similarity.
+
+
+if counter == 1:
+    # preparing the model.
+    # Building Model Input layers.
+
+    users_in = layers.Input(shape=(1, ), name='User Input')
+    apps_in = layers.Input(shape=(1, ), name='App Input')
+
+    features_in = layers.Input(shape=(n_features, ), name='Feature Input')
+
+    # Creating embeddings, flattening the output and getting Dot product.
+    embed_size = 50
+    reg = regularizers.L1(0.001)
+
+    users_embed = layers.Embedding(input_dim=n_users, output_dim=embed_size,
+                                   embeddings_regularizer=reg, name='User-Embedding')(users_in)
+    apps_embed = layers.Embedding(input_dim=n_apps, output_dim=embed_size,
+                                  embeddings_regularizer=reg, name='App-Embedding')(apps_in)
+
+    users_flat = layers.Flatten()(users_embed)
+    apps_flat = layers.Flatten()(apps_embed)
+
+    dot_prd = layers.Dot(normalize=True, axes=1)([users_flat, apps_flat])
+
+    # Dense layer for features input.
+
+    feat_1 = layers.Dense(units=n_features, activation='relu',
+                          kernel_regularizer=reg)(features_in)
+
+    # Merging the layers to get final output and compiling the model.
+
+    merged = layers.Concatenate()([dot_prd, feat_1])
+
+    dense_1 = layers.Dense(units=256, activation='relu',
+                           kernel_regularizer=reg)(merged)
+    dropout_1 = layers.Dropout(0.2)(dense_1)
+
+    dense_2 = layers.Dense(units=128, activation='relu',
+                           kernel_regularizer=reg)(dropout_1)
+    dropout_2 = layers.Dropout(0.2)(dense_2)
+
+    dense_3 = layers.Dense(units=64, activation='relu',
+                           kernel_regularizer=reg)(dropout_2)
+
+    output = layers.Dense(1, activation='linear')(dense_3)
+
+    hyb_model = models.Model(
+        inputs=[users_in, apps_in, features_in], outputs=output)
+
+    hyb_model.compile(optimizer=optimizers.Adam(0.001),
+                      loss='mean_absolute_error', metrics=['mse'])
+
+    # Fitting the model on the train data.
+
+    history = hyb_model.fit(x=[train['user'], train['appId'], train[features]],
+                            y=train['y'], epochs=50, batch_size=32,
+                            validation_split=0.3, verbose=1)
+
+    # Getting the Apps and user embeddings.
+    App_embedding = hyb_model.get_layer(name="App-Embedding").get_weights()[0]
+    user_embedding = hyb_model.get_layer(
+        name="User-Embedding").get_weights()[0]
+    counter = 0
+    function_call = True
+
+if function_call and app_vals:
+    app_id = Top_Recommendation(1000, app_vals=app_vals, measure="cosine")
+    st.write(app_id)
+    function_call = False
