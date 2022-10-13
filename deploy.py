@@ -244,5 +244,5 @@ if counter == 1:
 if function_call:
     app_id = Top_Recommendation(1000, app_vals=app_vals, measure="cosine")
     names = apps_data['title'][apps_data['appId'].isin(app_id)].values
-    st.write(app_id)
+    st.write(names)
     function_call = False
