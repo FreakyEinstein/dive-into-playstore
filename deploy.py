@@ -245,5 +245,6 @@ if counter == 1:
 
 if function_call:
     app_id = Top_Recommendation(1000, app_vals=app_vals, measure="cosine")
-    st.write(app_id)
+    rec_names = [key for key, value in apps_dict.items() if value in app_id]
+    st.write(rec_names)
     function_call = False
