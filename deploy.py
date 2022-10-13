@@ -28,6 +28,7 @@ split = False
 apps_to_take = pd.read_csv(f"{ASSETS_DIRECTORY}/apps_to_take.csv", index_col=0)
 apps_dict = {app: i for (app, i) in zip(
     apps_to_take.appId.unique(), range(len(apps_to_take.appId.unique())))}
+print(apps_dict)
 n_apps = len(apps_dict)
 
 # Giving a title for the App.
