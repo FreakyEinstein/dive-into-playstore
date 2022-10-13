@@ -22,6 +22,7 @@ reviews = pd.read_csv(f"{ASSETS_DIRECTORY}/reviews.csv")
 # helper counter variable to time the workflow
 counter = 0
 function_call = False
+split = False
 
 # Function to provide recommendation based on user-Id.
 apps_to_take = model_df['appId']
@@ -87,14 +88,11 @@ titles_list = st.multiselect(
 
 if st.button('Predict'):
     userid = 1000
-    appvals = list(apps_dict.keys())[:2]
-    app_idx = [val for key, val in apps_dict.items() if key in appvals]
-
-    X_df = model_df[model_df['appId'].isin(app_idx)][:len(appvals)]
-    X_df['user'] = userid
     app_vals = apps_data['appId'][apps_data['title'].isin(titles_list)]
-    train = pd.concat([train, X_df])
-
+    app_idx = [val for key, val in apps_dict.items() if key in app_vals]
+    X_df = model_df[model_df['appId'].isin(app_idx)][:len(app_vals)]
+    X_df['user'] = userid
+    split = True
     counter += 1
 else:
     st.write('Click on the Button above to predict')
@@ -113,10 +111,12 @@ df_std = model_df[['appId', 'user', 'y']].join(df_std)
 print(f'Shape : {df_std.shape}')
 
 # Splitting the dataset.
+if split:
+    train, test = train_test_split(
+        df_std, train_size=0.75, random_state=40, stratify=df_std['y'])
 
-train, test = train_test_split(
-    df_std, train_size=0.75, random_state=40, stratify=df_std['y'])
-
+    train = pd.concat([train, X_df])
+    split = False
 
 # Also Making a list of app features.
 
