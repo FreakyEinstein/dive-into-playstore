@@ -1,1 +1,0 @@
-. /Users/nanda/.local/share/virtualenvs/StreamLit-AAfATtJB/bin/activate
