@@ -79,9 +79,11 @@ titles_list = st.multiselect(
     'Select few apps from the below list?',
     list(temp_df.title))
 
-if titles_list:
+if st.button('Predict'):
     counter += 1
     app_vals = apps_data['appId'][apps_data['title'] == titles_list]
+else:
+    st.write('Click on the Button above to predict')
 
 
 # Now we scale the dataset and split it before building the model.
