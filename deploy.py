@@ -96,6 +96,8 @@ if st.button('Predict'):
 else:
     st.write('Click on the Button above to predict')
 
+if split and counter:
+    st.spinner('Predicting..')
 
 # Now we scale the dataset and split it before building the model.
 
@@ -104,10 +106,8 @@ df_to_std = model_df.drop(['appId', 'user', 'y'], axis=1)
 
 df_std = scaler.fit_transform(df_to_std)
 df_std = pd.DataFrame(df_std, columns=df_to_std.columns)
-print(df_std.shape)
 
 df_std = model_df[['appId', 'user', 'y']].join(df_std)
-print(f'Shape : {df_std.shape}')
 
 # Splitting the dataset.
 if split:
@@ -233,7 +233,7 @@ if counter == 1:
 
     history = hyb_model.fit(x=[train['user'], train['appId'], train[features]],
                             y=train['y'], epochs=50, batch_size=32,
-                            validation_split=0.3, verbose=1)
+                            validation_split=0.3, verbose=0)
 
     # Getting the Apps and user embeddings.
     App_embedding = hyb_model.get_layer(name="App-Embedding").get_weights()[0]
@@ -248,7 +248,7 @@ if function_call:
     names = apps_data['title'][apps_data['appId'].isin(app_id)].values
     temp = []
     for i in best_score:
-        temp.append(f"{i*100:.2f}")
+        temp.append(f"{i*100:.2f} %")
     best_score = temp[::-1]
     names = names[::-1]
     final = {'App Name': names, 'How likely we recommend to you.': best_score}
