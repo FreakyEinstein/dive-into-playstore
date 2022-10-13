@@ -2,9 +2,11 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from tensorflow.keras import models, layers, optimizers, regularizers
 
 # reading all the files neccesary
-## model_df, apps_data, engineered_data, saved_model
 ASSETS_DIRECTORY = "assets"
 
 # has genres and appId's for the entirely fetched apps.
@@ -12,11 +14,10 @@ apps_data = pd.read_csv(f"{ASSETS_DIRECTORY}/apps_data.csv")
 # to have a cleaned data.
 engineered_apps_data = pd.read_csv(
     f"{ASSETS_DIRECTORY}/engineered_apps_data.csv")
-# st.write(engineered_apps_data.head())
 # has all the standardised data which goes into the model training.
 model_df = pd.read_csv(f"{ASSETS_DIRECTORY}/Model_df.csv")
-# st.write(model_df.head())
-# importing the saved model to execute predictions
+# importing the reviews file
+reviews = pd.read_csv(f"{ASSETS_DIRECTORY}/reviews.csv")
 
 
 # Giving a title for the App.
@@ -26,6 +27,7 @@ st.title('A dive into the Google Playstore!!')
 st.caption('Get your app recommendations by answering few questions.')
 
 # writing the input fields to get the information from the user
+
 # selecting genres
 options = st.multiselect(
     'What are your favorite genres?',
@@ -73,42 +75,172 @@ for i in range(len(genre_list)):
 options = st.multiselect(
     'Select few apps from the below list?',
     list(temp_df.title))
-st.write(list(temp_df.title))
-
-# getting the top rated apps with the above filters from the Model_df.csv
-# our dataframe here is named as model_df.
 
 
-# querying the necessary data or mapping
+# Now we scale the dataset and split it before building the model.
 
-# give the most important field of selecting apps of the users choice
-# the options must be given based on the querying from the above fields
+scaler = StandardScaler()
+df_to_std = model_df.drop(['appId', 'user', 'y'], axis=1)
 
-# load the saved model
+df_std = scaler.fit_transform(df_to_std)
+df_std = pd.DataFrame(df_std, columns=df_to_std.columns)
+print(df_std.shape)
 
-# get or query the necessary arguments for the predict method to work 1,000,000
+df_std = model_df[['appId', 'user', 'y']].join(df_std)
+print(f'Shape : {df_std.shape}')
+
+# Splitting the dataset.
+
+train, test = train_test_split(
+    df_std, train_size=0.75, random_state=40, stratify=df_std['y'])
+
+print(f"""Train Shape :  {train.shape}
+Test Shape : {test.shape}""")
+
+# Also Making a list of app features.
+
+features = df_to_std.columns
+n_features = len(features)
+n_users = 1000
+n_apps = 1130
 
 
-# df = pd.read_csv('assets/engineered_apps_data.csv')
-# st.write(df.head())
-# df_apps = pd.read_csv('assets/apps_data.csv')
-# st.write(df.installs.max(), df.installs.min())
-# st.write('You selected:', options)
+# preparing the model.
+# Building Model Input layers.
 
-# '''
-#     genre -- multiple options,
-#     free or paid -- radio button,
-#     number of installs -- range using two slidbars,
-#     which app would you likely try or have tried and liked from the above selected genres? -- multiple selections,
+users_in = layers.Input(shape=(1, ), name='User Input')
+apps_in = layers.Input(shape=(1, ), name='App Input')
 
-#     give out the top recomendation and show it's details.
-# '''
+features_in = layers.Input(shape=(n_features, ), name='Feature Input')
 
-# inputs ===> genres, free_or_paid, installs, apps.
-# 1) predict args ====> {
-#     select the chosen appId,
-#     get the number for the appId selected from the apps_dict,
+# Creating embeddings, flattening the output and getting Dot product.
+embed_size = 50
+reg = regularizers.L1(0.001)
 
-# },
-# { userId === fix it to 1000 },
-# { features ===> from the appIds, fetch ( load model_df take reference from the notebook and call the necesary columns and pass it as an array. ) }
+users_embed = layers.Embedding(input_dim=n_users, output_dim=embed_size,
+                               embeddings_regularizer=reg, name='User-Embedding')(users_in)
+apps_embed = layers.Embedding(input_dim=n_apps, output_dim=embed_size,
+                              embeddings_regularizer=reg, name='App-Embedding')(apps_in)
+
+users_flat = layers.Flatten()(users_embed)
+apps_flat = layers.Flatten()(apps_embed)
+
+dot_prd = layers.Dot(normalize=True, axes=1)([users_flat, apps_flat])
+
+# Dense layer for features input.
+
+feat_1 = layers.Dense(units=n_features, activation='relu',
+                      kernel_regularizer=reg)(features_in)
+
+
+# Merging the layers to get final output and compiling the model.
+
+merged = layers.Concatenate()([dot_prd, feat_1])
+
+dense_1 = layers.Dense(units=256, activation='relu',
+                       kernel_regularizer=reg)(merged)
+dropout_1 = layers.Dropout(0.2)(dense_1)
+
+dense_2 = layers.Dense(units=128, activation='relu',
+                       kernel_regularizer=reg)(dropout_1)
+dropout_2 = layers.Dropout(0.2)(dense_2)
+
+dense_3 = layers.Dense(units=64, activation='relu',
+                       kernel_regularizer=reg)(dropout_2)
+
+output = layers.Dense(1, activation='linear')(dense_3)
+
+hyb_model = models.Model(
+    inputs=[users_in, apps_in, features_in], outputs=output)
+
+hyb_model.compile(optimizer=optimizers.Adam(0.001),
+                  loss='mean_absolute_error', metrics=['mse'])
+
+
+# Fitting the model on the train data.
+
+history = hyb_model.fit(x=[train['user'], train['appId'], train[features]],
+                        y=train['y'], epochs=50, batch_size=32,
+                        validation_split=0.3, verbose=1)
+
+
+# Getting the Apps and user embeddings.
+
+App_embedding = hyb_model.get_layer(name="App-Embedding").get_weights()[0]
+App_embedding.shape
+
+user_embedding = hyb_model.get_layer(name="User-Embedding").get_weights()[0]
+user_embedding.shape
+
+
+# Function to calculate score of an user-app pair based on dot product or cosine similarity.
+
+def compute_score(user_val, app_val, measure='dot'):
+
+    u = user_val
+    a = app_val
+
+    if measure == 'cosine':
+
+        u = u / (np.linalg.norm(u))
+        a = a / (np.linalg.norm(a, keepdims=True))
+
+    scores = u.dot(a.T)
+    return scores
+
+
+# Making a user dictionary.
+unique_list = reviews['userImage'].value_counts().nlargest(1001)[1:]
+unique_names = unique_list.index
+user_dict = {user: i for (user, i) in zip(
+    unique_names, range(len(unique_names)))}
+n_users = len(user_dict)
+
+
+# Getting apps already rated by a particular user.
+
+def get_apps(id):
+
+    for key in user_dict.keys():
+
+        if user_dict[key] == id:
+            user_id = key
+
+    return reviews['appId'][reviews['userImage'] == user_id].unique(), reviews['userName'][reviews['userImage'] == user_id].unique()
+
+
+# Function to provide recommendation based on user-Id.
+apps_to_take = model_df['appId']
+apps_dict = {app: i for (app, i) in zip(
+    apps_to_take.unique(), range(len(apps_to_take.unique())))}
+n_apps = len(apps_dict)
+
+
+def Top_Recommendation(id, measure, n=5):
+
+    scores = []
+    vals, name = get_apps(id)
+
+    # Retrieving apps which are not in user's rated apps.
+    select_apps = [app for app in apps_dict.keys() if app not in vals]
+    # Getting Indexes for apps in app-embedding.
+    select_apps = list(map(lambda x: apps_dict.get(x), select_apps))
+
+    for idx in select_apps:
+
+        # Calculating the top scores based on the measure
+        score = compute_score(
+            user_embedding[id], App_embedding[idx], measure=measure)
+        scores.append(score)
+
+    best_idx = np.argsort(scores)[-n:]
+    best_scores = np.sort(scores)[-n:]
+    # Taking the top 5 scores and returning the recommended apps.
+    pos = [list(apps_dict.values()).index(i) for i in best_idx]
+    app_id = [list(apps_dict.keys())[i] for i in pos]
+
+    return app_id
+
+
+app_id = Top_Recommendation(1000, measure="cosine")
+st.write(app_id)
