@@ -23,6 +23,12 @@ reviews = pd.read_csv(f"{ASSETS_DIRECTORY}/reviews.csv")
 counter = 0
 function_call = False
 
+# Function to provide recommendation based on user-Id.
+apps_to_take = model_df['appId']
+apps_dict = {app: i for (app, i) in zip(
+    apps_to_take.unique(), range(len(apps_to_take.unique())))}
+n_apps = len(apps_dict)
+
 # Giving a title for the App.
 st.title('A dive into the Google Playstore!!')
 
@@ -80,8 +86,16 @@ titles_list = st.multiselect(
     list(temp_df.title))
 
 if st.button('Predict'):
-    counter += 1
+    userid = 1000
+    appvals = list(apps_dict.keys())[:2]
+    app_idx = [val for key, val in apps_dict.items() if key in appvals]
+
+    X_df = model_df[model_df['appId'].isin(app_idx)][:len(appvals)]
+    X_df['user'] = userid
     app_vals = apps_data['appId'][apps_data['title'].isin(titles_list)]
+    train = pd.concat([train, X_df])
+
+    counter += 1
 else:
     st.write('Click on the Button above to predict')
 
@@ -103,14 +117,12 @@ print(f'Shape : {df_std.shape}')
 train, test = train_test_split(
     df_std, train_size=0.75, random_state=40, stratify=df_std['y'])
 
-print(f"""Train Shape :  {train.shape}
-Test Shape : {test.shape}""")
 
 # Also Making a list of app features.
 
 features = df_to_std.columns
 n_features = len(features)
-n_users = 1000
+n_users = 1001
 n_apps = 1130
 
 # HElPER FUNCTIONS
@@ -135,14 +147,6 @@ unique_list = reviews['userImage'].value_counts().nlargest(1001)[1:]
 unique_names = unique_list.index
 user_dict = {user: i for (user, i) in zip(
     unique_names, range(len(unique_names)))}
-n_users = len(user_dict)
-
-
-# Function to provide recommendation based on user-Id.
-apps_to_take = model_df['appId']
-apps_dict = {app: i for (app, i) in zip(
-    apps_to_take.unique(), range(len(apps_to_take.unique())))}
-n_apps = len(apps_dict)
 
 
 def Top_Recommendation(id, app_vals, measure, n=5):
