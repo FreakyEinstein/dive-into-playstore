@@ -23,6 +23,7 @@ reviews = pd.read_csv(f"{ASSETS_DIRECTORY}/reviews.csv")
 counter = 0
 function_call = False
 split = False
+loading_flag = False
 
 # Function to provide recommendation based on user-Id.
 apps_to_take = pd.read_csv(f"{ASSETS_DIRECTORY}/apps_to_take.csv", index_col=0)
@@ -93,14 +94,14 @@ if st.button('Predict'):
     X_df['user'] = userid
     split = True
     counter += 1
+    loading_flag = True
 else:
     st.write('Click on the Button above to predict')
 
-if split and counter:
-    st.spinner('Predicting..')
+while loading_flag:
+    st.spinner("Predicting...")
 
 # Now we scale the dataset and split it before building the model.
-
 scaler = StandardScaler()
 df_to_std = model_df.drop(['appId', 'user', 'y'], axis=1)
 
