@@ -246,6 +246,12 @@ if function_call:
     app_id, best_score = Top_Recommendation(
         1000, app_vals=app_vals, measure="cosine")
     names = apps_data['title'][apps_data['appId'].isin(app_id)].values
-    st.write(names)
-    st.write(best_score*100)
+    temp = []
+    for i in best_score:
+        temp.append(float(f"{i*100:.2f}"))
+    best_score = temp[::-1]
+    names = names[::-1]
+    final_df = pd.DataFrame([names, best_score], columns=[
+                            'App Name', 'Likely to Recommend'])
+    st.dataframe(final_df, 200, 100)
     function_call = False
