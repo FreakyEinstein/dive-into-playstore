@@ -167,11 +167,12 @@ def Top_Recommendation(id, app_vals, measure, n=5):
         scores.append(score)
 
     best_idx = np.argsort(scores)[-n:]
+    best_scores = np.sort(scores)[-n:]
     # Taking the top 5 scores and returning the recommended apps.
     pos = [list(apps_dict.values()).index(i) for i in best_idx]
     app_id = [list(apps_dict.keys())[i] for i in pos]
 
-    return app_id
+    return app_id, best_scores
 
 
 # Function to calculate score of an user-app pair based on dot product or cosine similarity.
@@ -242,7 +243,9 @@ if counter == 1:
     function_call = True
 
 if function_call:
-    app_id = Top_Recommendation(1000, app_vals=app_vals, measure="cosine")
+    app_id, best_score = Top_Recommendation(
+        1000, app_vals=app_vals, measure="cosine")
     names = apps_data['title'][apps_data['appId'].isin(app_id)].values
-    st.write(names)
+    st.write(names, f"{best_score*100:.2f}")
+    st.write(f"{best_score*100:.2f}")
     function_call = False
