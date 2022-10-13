@@ -253,5 +253,5 @@ if function_call:
     names = names[::-1]
     final = {'App Name': names, 'How likely we recommend to you.': best_score}
     final_df = pd.DataFrame(final)
-    st.dataframe(final_df, 200, 100)
+    st.dataframe(final_df, use_container_width=True)
     function_call = False
